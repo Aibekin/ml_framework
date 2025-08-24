@@ -26,13 +26,15 @@ void mat_sigmoid(c_matrix *m);
 // NN nn = nn_alloc(arch, ARRAY_LEN(arch));
 
 NN alloc_nn(size_t *arch, size_t arch_count);
+void zero_nn(NN *nn);
 void rand_nn(NN *nn, float low, float high);
 void print_nn(NN *nn, const char *name);
-#define PRINT_NN(nn) print_nn(nn, #nn);
+#define PRINT_NN(nn) print_nn(&nn, #nn);
 
 void forward_nn(NN *nn);
 float cost_nn(NN *nn, c_matrix *in, c_matrix *out);
 void diff_nn(NN *nn, NN *g, float eps, c_matrix *in, c_matrix *out);
+void backprop_nn(NN *nn, NN *g, c_matrix *in, c_matrix *out);
 void learn_nn(NN *nn, NN *g, float rate);
 
 #endif

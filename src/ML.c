@@ -41,6 +41,17 @@ NN alloc_nn(size_t *arch, size_t arch_count)
     return nn;
 }
 
+void zero_nn(NN *nn)
+{
+    for (size_t i = 0; i < nn->count; ++i)
+    {
+        nn->ws[i] = create_zeros(nn->ws[i].rows, nn->ws[i].cols);
+        nn->bs[i] = create_zeros(nn->bs[i].rows, nn->bs[i].cols);
+        nn->as[i] = create_zeros(nn->as[i].rows, nn->as[i].cols);
+    }
+    nn->as[nn->count] = create_zeros(nn->as[nn->count].rows, nn->as[0].cols);
+}
+
 void rand_nn(NN *nn, float low, float high)
 {
     for (size_t i = 0; i < nn->count; ++i)
@@ -130,6 +141,60 @@ void diff_nn(NN *nn, NN *g, float eps, c_matrix *in, c_matrix *out)
                 MAT_AT(&nn->bs[i], j, k).value = saved;
             }
         }
+    }
+}
+
+void backprop_nn(NN *nn, NN *g, c_matrix *in, c_matrix *out)
+{
+    assert(in->rows == out->rows);
+    size_t n = in->rows;
+    assert(NN_OUTPUT(*nn).cols == out->cols);
+
+    zero_nn(g);
+
+    // i - current sample
+    // l - current layer
+    // j - current activation
+    // k - previous activation
+
+    for (size_t i = 0; i < n; ++i)
+    {
+        copy_matrix(&NN_INPUT(*nn), get_prow(in, i));
+        forward_nn(nn);
+
+        for (size_t j = 0; j < nn->count; ++j)
+            g->as[j] = create_zeros(g->as[j].rows, g->as[j].cols);
+
+        for (size_t j = 0; j < out->cols; ++j)
+            MAT_AT(&NN_OUTPUT(*g), 0, j).value = MAT_AT(&NN_OUTPUT(*nn), 0, j).value - MAT_AT(out, i, j).value;
+
+        for (size_t l = nn->count; l > 0; --l)
+        {
+            for (size_t j = 0; j < nn->as[l].cols; ++j)
+            {
+                float current_a = MAT_AT(&nn->as[l], 0, j).value;
+                float current_da = MAT_AT(&g->as[l], 0, j).value;
+                MAT_AT(&g->bs[l - 1], 0, j).value += 2 * current_da * current_a * (1 - current_a);
+                for (size_t k = 0; k < nn->as[l - 1].cols; ++k)
+                {
+                    // j - weight matrix col
+                    // k - weight matrix row
+                    float pa = MAT_AT(&nn->as[l - 1], 0, k).value;
+                    float weight = MAT_AT(&nn->ws[l - 1], k, j).value;
+                    MAT_AT(&g->ws[l - 1], k, j).value += 2 * current_da * current_a * (1 - current_a) * pa;
+                    MAT_AT(&g->as[l - 1], 0, k).value += 2 * current_da * current_a * (1 - current_a) * weight;
+                }
+            }
+        }
+    }
+    for (size_t i = 0; i < g->count; ++i)
+    {
+        for (size_t j = 0; j < g->ws[i].rows; ++j)
+            for (size_t k = 0; k < g->ws[i].cols; ++k)
+                MAT_AT(&g->ws[i], j, k).value /= n;
+        for (size_t j = 0; j < g->bs[i].rows; ++j)
+            for (size_t k = 0; k < g->bs[i].cols; ++k)
+                MAT_AT(&g->bs[i], j, k).value /= n;
     }
 }
 
