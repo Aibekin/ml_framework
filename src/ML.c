@@ -200,7 +200,7 @@ void backprop_nn(NN *nn, NN *g, c_matrix *in, c_matrix *out)
 
 void learn_nn(NN *nn, NN *g, float rate)
 {
-    for (size_t i = 0; i < 2; ++i)
+    for (size_t i = 0; i < nn->count; ++i)
     {
         for (size_t j = 0; j < nn->ws[i].rows; ++j)
         {
